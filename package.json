@@ -1,0 +1,29 @@
+{
+  "author": "Marko Röder <m.roeder@photon-software.de>",
+  "name": "lively-git-helper",
+  "description": "Lively Kernel Git Helper",
+  "version": "0.0.1",
+  "homepage": "https://github.com/LivelyKernel/lively-git-helper",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "helper"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LivelyKernel/lively-git-helper"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "async": "~0.2"
+  },
+  "devDependencies": {
+    "nodeunit": "~0.8.6"
+  },
+  "bugs": {
+    "url": "https://github.com/LivelyKernel/lively-git-helper/issues"
+  },
+  "scripts": {
+    "test": "node_modules/nodeunit/bin/nodeunit tests/test.js"
+  }
+}
