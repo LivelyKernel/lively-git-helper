@@ -239,6 +239,21 @@ module.exports = {
         });
     },
 
+    readFile: function(branch, workingDir, path, callback) {
+        // no need to check for branch... if it does not exist, this simply fails
+        exec('git', ['--no-pager', 'show', branch + ':' + path], { cwd: workingDir, maxBuffer: 10000*1024, encoding: 'binary' },
+        function(err, stdout, stderr) {
+            if (err)
+                return callback(err);
+            if (!Buffer.isBuffer(stdout))
+                stdout = new Buffer(stdout, 'binary');
+            // Zero length buffers act funny, use a string
+            if (stdout.length === 0)
+                stdout = '';
+            callback(null, stdout);
+        });
+    },
+
     writeFile: function(branch, workingDir, path, buffer, encoding, callback) {
         var commitInfo = { // FIXME: use real commit info
             GIT_AUTHOR_NAME: 'John Doe',
@@ -345,6 +360,23 @@ module.exports = {
                 callback(null, false);
             } else
                 callback(err);
+        });
+    },
+
+    lastModified: function(branch, workingDir, path, callback) {
+        // no need to check for branch... if it does not exist, this simply fails
+        exec('git', ['log', '-1', '--format=\'%aD\'', branch, '--', path], { cwd: workingDir }, function(err, stdout, stderr) {
+            if (err) return callback(err);
+            var dateStr = stdout.trimRight();
+            callback(null, dateStr != '' ? new Date(dateStr) : new Date(0));
+        });
+    },
+
+    fileSize: function(branch, workingDir, path, callback) {
+        // no need to check for branch... if it does not exist, this simply fails
+        exec('git', ['cat-file', '-s', branch + ':' + path], { cwd: workingDir }, function(err, stdout, stderr) {
+            if (err || parseInt(stdout) == NaN) return callback(true);
+            callback(null, parseInt(stdout));
         });
     }
 
