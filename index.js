@@ -181,7 +181,6 @@ function createTrees(workingDir, fileName, fileInfo, callback) {
 
     async.reduce(fileInfo.treeInfos, null, function(subHash, treeInfo, callback) {
         var subDir = pathParts.pop();
-        console.log(subDir, subHash);
         if (subHash != null) {
             treeInfo[subDir] = treeInfo[subDir] || JSON.parse(JSON.stringify(DIRECTORY_TEMPLATE)); // ... or clone empty dir
             treeInfo[subDir].objectHash = subHash; // update tree with updated hash
