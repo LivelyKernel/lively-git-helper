@@ -17,6 +17,10 @@ var tests = {
         callback();
     },
 
+    tearDown: function(callback) {
+        gitHelper.removeBranch(this.branch, '.', callback);
+    },
+
     testFileTypeIsFile: function(test) {
         var self = this;
         gitHelper.fileType(this.branch, '.', 'package.json', function(err, isDir) {
@@ -38,7 +42,7 @@ var tests = {
     testFileTypeNotExists: function(test) {
         var self = this;
         gitHelper.fileType(this.branch, '.', 'not.exists', function(err, isDir) {
-            test.ok(err instanceof Error, 'caught error when checking "' + self.branch + '" for non existing file (non.exists)');
+            test.ok(err instanceof Error, 'did not get an error when checking "' + self.branch + '" for non existing file (non.exists)');
             test.done();
         });
     },
@@ -59,15 +63,27 @@ var tests = {
     testFileCreationAndDeletion: function(test) {
         var self = this,
             randomString = generateRandomStr(10),
-            textBuffer = new Buffer('I am ' + randomString);
-        // TODO: read tree and make sure the file does not exist
-        gitHelper.writeFile(this.branch, '.', 'tests/' + randomString + '.txt', textBuffer, 'utf-8', function(err) {
-            test.ifError(err, 'caught error when writing tests/' + randomString + '.txt to "' + self.branch + '"');
-            // TODO: read file from master and make sure it was not changed
-            gitHelper.unlink(self.branch, '.', 'tests/' + randomString + '.txt', function(err) {
-                test.ifError(err, 'caught error when deleting tests/' + randomString + '.txt from "' + self.branch + '"');
-                // TODO: read tree and make sure the file does not exist anymore
-                test.done();
+            textBuffer = new Buffer('I am ' + randomString),
+            fileName = 'tests/' + randomString + '.txt';
+
+        gitHelper.readFile(self.branch, '.', fileName, function(err) {
+            test.ok(err instanceof Error, 'did not get an error when checking "' + self.branch + '" for ' + fileName);
+            gitHelper.writeFile(self.branch, '.', fileName, textBuffer, 'utf-8', function(err) {
+                test.ifError(err, 'caught error when writing ' + fileName + ' to "' + self.branch + '"');
+                gitHelper.readFile(/* should still not exist on */ 'master', '.', fileName, function(err) {
+                    test.ok(err instanceof Error, 'did not get an error when checking "master" for ' + fileName);
+                    gitHelper.readFile(/* should exist on */ self.branch, '.', fileName, function(err, buffer) {
+                        test.ifError(err, 'caught error when checking "' + self.branch + '" for ' + fileName);
+                        test.equal(buffer.toString(), textBuffer.toString(), 'content was not inserted write');
+                        gitHelper.unlink(self.branch, '.', fileName, function(err) {
+                            test.ifError(err, 'caught error when deleting ' + fileName + ' from "' + self.branch + '"');
+                            gitHelper.readFile(self.branch, '.', fileName, function(err) {
+                                test.ok(err instanceof Error, 'did not get an error when checking "' + self.branch + '" for ' + fileName + ' after delete');
+                                test.done();
+                            });
+                        });
+                    });
+                });
             });
         });
     },
@@ -96,6 +112,30 @@ var tests = {
                 test.ifError(err, 'caught error when checking (working copy) whether package.json is ignored');
                 test.ok(!ignored, 'package.json should not be ignored (in the currenty working copy)');
                 test.done();
+            });
+        });
+    },
+
+    testStats: function(test) {
+        var self = this,
+            randomString = generateRandomStr(10),
+            textBuffer = new Buffer(randomString),
+            fileName = 'tests/' + randomString + '.txt',
+            startDate = new Date().getTime();
+
+        gitHelper.writeFile(self.branch, '.', fileName, textBuffer, 'utf-8', function(err) {
+            test.ifError(err, 'caught error when writing ' + fileName + ' to "' + self.branch + '"');
+            gitHelper.fileSize(self.branch, '.', fileName, function(err, size) {
+                test.ifError(err, 'caught error when checking file size of  ' + fileName + ' on "' + self.branch + '"');
+                test.equal(size, 10, 'could not read the correct file size from ' + fileName + ' on "' + self.branch + '"');
+                gitHelper.lastModified(self.branch, '.', fileName, function(err, date) {
+                    test.ifError(err, 'caught error when checking last modified of  ' + fileName + ' on "' + self.branch + '"');
+                    test.ok(date.getTime() - startDate < 2000, 'could not read the correct last modified from ' + fileName + ' on "' + self.branch + '"');
+                    gitHelper.unlink(self.branch, '.', fileName, function(err) {
+                        test.ifError(err, 'caught error when deleting ' + fileName + ' from "' + self.branch + '"');
+                        test.done();
+                    });
+                });
             });
         });
     }

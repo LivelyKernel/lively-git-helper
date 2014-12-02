@@ -233,10 +233,13 @@ module.exports = {
     },
 
     readDir: function(branch, workingDir, path, callback) {
-        exec('git', ['ls-tree', branch + ':' + path], { cwd: workingDir }, function(err, stdout, stderr) {
-            if (err) return callback(err);
-            callback(null, treeFromString(stdout));
-        });
+        async.waterfall([
+            ensureBranch.bind(null, branch, workingDir),
+            exec.bind(exec, 'git', ['ls-tree', branch + ':' + path], { cwd: workingDir }),
+            function(stdout, stderr, cb) {
+                cb(null, treeFromString(stdout));
+            }
+        ], callback);
     },
 
     readFile: function(branch, workingDir, path, callback) {
@@ -377,6 +380,13 @@ module.exports = {
         exec('git', ['cat-file', '-s', branch + ':' + path], { cwd: workingDir }, function(err, stdout, stderr) {
             if (err || parseInt(stdout) == NaN) return callback(true);
             callback(null, parseInt(stdout));
+        });
+    },
+
+    removeBranch: function(branch, workingDir, callback) {
+        exec('git', ['branch', '-D', branch], { cwd: workingDir }, function(err, stdout, stderr) {
+            // do not care if the branch never existed
+            callback();
         });
     }
 
