@@ -138,6 +138,15 @@ var tests = {
                 });
             });
         });
+    },
+
+    testListBranches: function(test) {
+        gitHelper.listBranches('.', function(err, branches) {
+            test.ifError(err, 'caught error when reading list of branches');
+            test.ok(branches instanceof Array, 'did not get a list of branches back');
+            test.ok(branches.indexOf('master') > -1, 'could not find master in the list of branches');
+            test.done();
+        });
     }
 
 };

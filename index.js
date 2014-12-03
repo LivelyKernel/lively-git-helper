@@ -97,6 +97,13 @@ function createHashObject(workingDir, buffer, encoding, callback) {
     process.stdin.end(buffer, encoding);
 }
 
+function createHashObjectFromFile(workingDir, fileName, callback) {
+    exec('git', ['hash-object', '-t', 'blob', '-w', fileName], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        callback(null, stdout.trimRight());
+    });
+}
+
 function getParentHash(branch, workingDir, fileInfo, callback) {
     exec('git', ['log', '--pretty=%H %s', '-n', '1', branch], { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
@@ -383,11 +390,29 @@ module.exports = {
         });
     },
 
+    listBranches: function(workingDir, callback) {
+        exec('git', ['branch', '--list'], { cwd: workingDir }, function(err, stdout, stderr) {
+            if (err) return callback(err);
+            var branches = stdout.trimRight().split('\n').map(function(branch) {
+                return branch.substr(2);
+            });
+            callback(null, branches);
+        });
+    },
+
     removeBranch: function(branch, workingDir, callback) {
         exec('git', ['branch', '-D', branch], { cwd: workingDir }, function(err, stdout, stderr) {
             // do not care if the branch never existed
             callback();
         });
+    },
+
+    util: {
+
+        createHashObjectFromFile: createHashObjectFromFile,
+        treeFromString: treeFromString,
+        stringFromTree: stringFromTree
+
     }
 
 }
