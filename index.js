@@ -214,7 +214,7 @@ function removeObjectFromTree(completeFileName, fileInfo, callback) {
     callback(null, fileInfo);
 }
 
-function createTrees(workingDir, fileName, fileInfo, callback) {
+function createTrees(workingDir, fileInfo, callback) {
     var changedDirs = Object.getOwnPropertyNames(fileInfo.treeInfos).sort().reverse();
     async.reduce(changedDirs, null, function(hashAndDir, changedDir, callback) {
         var treeInfo = fileInfo.treeInfos[changedDir];
@@ -312,7 +312,7 @@ module.exports = {
             getParentHash.bind(null, branch, workingDir),
             getCurrentTrees.bind(null, workingDir, path),
             injectHashObjectIntoFileInfo.bind(null, path),
-            createTrees.bind(null, workingDir, path),
+            createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
@@ -334,7 +334,7 @@ module.exports = {
             getParentHash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, path),
             injectEmptyDirIntoTree.bind(null, workingDir, path),
-            createTrees.bind(null, workingDir, path),
+            createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
@@ -356,7 +356,7 @@ module.exports = {
             getParentHash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, path),
             removeObjectFromTree.bind(null, path),
-            createTrees.bind(null, workingDir, path),
+            createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
@@ -380,7 +380,7 @@ module.exports = {
             copyFileHash.bind(null, source),
             getCurrentTrees.bind(null, workingDir, destination),
             injectHashObjectIntoFileInfo.bind(null, destination),
-            createTrees.bind(null, workingDir, destination),
+            createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
@@ -445,9 +445,8 @@ module.exports = {
 
         createHashObjectFromFile: createHashObjectFromFile,
         injectHashObjectIntoTree: injectHashObjectIntoTree,
-        treeFromString: treeFromString,
-        stringFromTree: stringFromTree,
         getTree: getTree,
+        createTrees: createTrees
 
     }
 
