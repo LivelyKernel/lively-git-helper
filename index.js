@@ -124,41 +124,61 @@ function getParentHash(branch, workingDir, fileInfo, callback) {
     });
 }
 
-function getCurrentTrees(workingDir, fileName, fileInfo, callback) { // parent's or stash' trees
-    var pathParts = fileName.split(path.sep);
-    pathParts.pop();
-    var pathes = pathParts.reduce(function(pathes, part) {
-        pathes.unshift(path.join(pathes[0], part) + '/');
-        return pathes;
-    }, ['']);
-
-    async.map(pathes, function(path, callback) {
-        exec('git', ['ls-tree', (fileInfo.stash || fileInfo.parent), path], { cwd: workingDir }, function(err, stdout, stderr) {
-            if (err) return callback(err);
-            callback(null, treeFromString(stdout, true));
-        });
-    }, function(err, results) {
+function getCurrentTrees(workingDir, fileName, fileInfo, callback) {
+    // parent's or stash' trees
+    getTree(workingDir, fileName, (fileInfo.stash || fileInfo.parent), function(err, treeInfo) {
         if (err) return callback(err);
-        fileInfo.treeInfos = results;
+        fileInfo.treeInfos = treeInfo;
         callback(null, fileInfo);
     });
 }
 
-function copyFileHash(fileName, fileInfo, callback) {
-    var info = fileInfo.treeInfos[0][path.basename(fileName)];
+function getTree(workingDir, fileName, treeish, treeInfo, callback) {
+    if ((callback === undefined) && (treeInfo instanceof Function)) {
+        callback = treeInfo;
+        treeInfo = {};
+    }
+
+    var pathParts = fileName.split(path.sep);
+    pathParts.pop();
+    var paths = pathParts.reduce(function(paths, part) {
+        paths.unshift(path.join(paths[0], part) + '/');
+        return paths;
+    }, ['']);
+
+    async.reduce(paths, treeInfo, function(tree, path, next) {
+        if (tree.hasOwnProperty(path)) return next(null, tree);
+        exec('git', ['ls-tree', treeish, path], { cwd: workingDir }, function(err, stdout, stderr) {
+            if (err) return next(err);
+            tree[path] = treeFromString(stdout, true);
+            next(null, tree);
+        });
+    }, callback);
+}
+
+function copyFileHash(completeFileName, fileInfo, callback) {
+    var dirName = path.dirname(completeFileName),
+        fileName = path.basename(completeFileName);
+    dirName = (dirName == '.' ? '' : dirName + '/');
+
+    var info = fileInfo.treeInfos[dirName][fileName];
     if (!(info && info.objectHash))
         return callback(new Error('Could not find object to copy (source)!'));
     fileInfo.fileHash = info.objectHash;
     callback(null, fileInfo);
 }
 
-function injectHashObjectIntoTree(fileName, fileInfo, callback) {
-    var info = fileInfo.treeInfos[0][path.basename(fileName)] = JSON.parse(JSON.stringify(FILE_TEMPLATE)); // ... clone FILE_TEMPLATE
+function injectHashObjectIntoTree(completeFileName, fileInfo, callback) {
+    var dirName = path.dirname(completeFileName),
+        fileName = path.basename(completeFileName);
+    dirName = (dirName == '.' ? '' : dirName + '/');
+
+    var info = fileInfo.treeInfos[dirName][fileName] = JSON.parse(JSON.stringify(FILE_TEMPLATE)); // ... clone FILE_TEMPLATE
     info.objectHash = fileInfo.fileHash;
     callback(null, fileInfo);
 }
 
-function injectEmptyDirIntoTree(workingDir, dirName, fileInfo, callback) {
+function injectEmptyDirIntoTree(workingDir, completeDirName, fileInfo, callback) {
     var process = spawn('git', ['mktree'], { cwd: workingDir }),
         stdout = '',
         stderr = '';
@@ -171,26 +191,36 @@ function injectEmptyDirIntoTree(workingDir, dirName, fileInfo, callback) {
     process.on('close', function(code) {
         if (code != 0)
             return callback(new Error(stderr));
-        var info = fileInfo.treeInfos[0][path.basename(dirName)] = JSON.parse(JSON.stringify(DIRECTORY_TEMPLATE)); // ... clone
+        var parentDir = path.dirname(completeDirName),
+            dirName = path.basename(completeDirName);
+        parentDir = (parentDir == '.') ? '' : parentDir + '/';
+        var info = fileInfo.treeInfos[parentDir][dirName] = JSON.parse(JSON.stringify(DIRECTORY_TEMPLATE)); // ... clone
         info.objectHash = stdout.trimRight() // empty tree hash
         callback(null, fileInfo);
     });
     process.stdin.end();
 }
 
-function removeObjectFromTree(fileName, fileInfo, callback) {
-    delete fileInfo.treeInfos[0][path.basename(fileName)];
+function removeObjectFromTree(completeFileName, fileInfo, callback) {
+    var parentDir = path.dirname(completeFileName),
+        fileName = path.basename(completeFileName);
+    parentDir = (parentDir == '.') ? '' : parentDir + '/';
+
+    delete fileInfo.treeInfos[parentDir][fileName];
     callback(null, fileInfo);
 }
 
 function createTrees(workingDir, fileName, fileInfo, callback) {
-    var pathParts = fileName.split(path.sep);
-
-    async.reduce(fileInfo.treeInfos, null, function(subHash, treeInfo, callback) {
-        var subDir = pathParts.pop();
-        if (subHash != null) {
-            treeInfo[subDir] = treeInfo[subDir] || JSON.parse(JSON.stringify(DIRECTORY_TEMPLATE)); // ... or clone empty dir
-            treeInfo[subDir].objectHash = subHash; // update tree with updated hash
+    var changedDirs = Object.getOwnPropertyNames(fileInfo.treeInfos).sort().reverse();
+    async.reduce(changedDirs, null, function(hashAndDir, changedDir, callback) {
+        var treeInfo = fileInfo.treeInfos[changedDir];
+        if (hashAndDir != null) {
+            var hash = hashAndDir[0], // undefined otherwise
+                prevDir = hashAndDir[1];
+        }
+        if (hash != null) {
+            treeInfo[prevDir] = treeInfo[prevDir] || JSON.parse(JSON.stringify(DIRECTORY_TEMPLATE)); // ... or clone empty dir
+            treeInfo[prevDir].objectHash = hash; // update tree with updated hash
         }
         var process = spawn('git', ['mktree'], { cwd: workingDir }),
             stdout = '',
@@ -205,12 +235,12 @@ function createTrees(workingDir, fileName, fileInfo, callback) {
             if (code != 0)
                 return callback(new Error(stderr));
                 var newHash = stdout.trimRight();
-            callback(null, newHash);
+            callback(null, [newHash, path.basename(changedDir)]);
         });
         process.stdin.end(stringFromTree(treeInfo));
     }, function(err, result) {
         if (err) return callback(err);
-        fileInfo.rootTree = result;
+        fileInfo.rootTree = result[0];
         callback(null, fileInfo);
     });
 }
