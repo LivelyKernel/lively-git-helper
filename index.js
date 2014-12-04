@@ -238,7 +238,7 @@ function createTrees(workingDir, fileInfo, callback) {
         process.on('close', function(code) {
             if (code != 0)
                 return callback(new Error(stderr));
-                var newHash = stdout.trimRight();
+            var newHash = stdout.trimRight();
             callback(null, [newHash, path.basename(changedDir)]);
         });
         process.stdin.end(stringFromTree(treeInfo));
@@ -249,8 +249,9 @@ function createTrees(workingDir, fileInfo, callback) {
     });
 }
 
-function createCommit(workingDir, commitInfo, fileInfo, callback) {
-    exec('git', ['commit-tree', fileInfo.rootTree, '-p', fileInfo.parent, '-m', TMP_COMMIT_MESSAGE], { cwd: workingDir, env: commitInfo }, function(err, stdout, stderr) {
+function createCommit(workingDir, commitInfo, message, fileInfo, callback) {
+    message = message || TMP_COMMIT_MESSAGE;
+    exec('git', ['commit-tree', fileInfo.rootTree, '-p', fileInfo.parent, '-m', message], { cwd: workingDir, env: commitInfo }, function(err, stdout, stderr) {
         if (err) return callback(err);
         fileInfo.commit = stdout.trimRight();
         callback(null, fileInfo);
@@ -313,7 +314,7 @@ module.exports = {
             getCurrentTrees.bind(null, workingDir, path),
             injectHashObjectIntoFileInfo.bind(null, path),
             createTrees.bind(null, workingDir),
-            createCommit.bind(null, workingDir, commitInfo),
+            createCommit.bind(null, workingDir, commitInfo, null),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
@@ -335,7 +336,7 @@ module.exports = {
             getCurrentTrees.bind(null, workingDir, path),
             injectEmptyDirIntoTree.bind(null, workingDir, path),
             createTrees.bind(null, workingDir),
-            createCommit.bind(null, workingDir, commitInfo),
+            createCommit.bind(null, workingDir, commitInfo, null),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
@@ -357,7 +358,7 @@ module.exports = {
             getCurrentTrees.bind(null, workingDir, path),
             removeObjectFromTree.bind(null, path),
             createTrees.bind(null, workingDir),
-            createCommit.bind(null, workingDir, commitInfo),
+            createCommit.bind(null, workingDir, commitInfo, null),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
@@ -381,7 +382,7 @@ module.exports = {
             getCurrentTrees.bind(null, workingDir, destination),
             injectHashObjectIntoFileInfo.bind(null, destination),
             createTrees.bind(null, workingDir),
-            createCommit.bind(null, workingDir, commitInfo),
+            createCommit.bind(null, workingDir, commitInfo, null),
             updateBranch.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
@@ -446,7 +447,9 @@ module.exports = {
         createHashObjectFromFile: createHashObjectFromFile,
         injectHashObjectIntoTree: injectHashObjectIntoTree,
         getTree: getTree,
-        createTrees: createTrees
+        createTrees: createTrees,
+        createCommit: createCommit,
+        updateBranch: updateBranch
 
     }
 
