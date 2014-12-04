@@ -168,13 +168,17 @@ function copyFileHash(completeFileName, fileInfo, callback) {
     callback(null, fileInfo);
 }
 
-function injectHashObjectIntoTree(completeFileName, fileInfo, callback) {
+function injectHashObjectIntoTree(completeFileName, hash, treeInfo) {
     var dirName = path.dirname(completeFileName),
         fileName = path.basename(completeFileName);
     dirName = (dirName == '.' ? '' : dirName + '/');
 
-    var info = fileInfo.treeInfos[dirName][fileName] = JSON.parse(JSON.stringify(FILE_TEMPLATE)); // ... clone FILE_TEMPLATE
-    info.objectHash = fileInfo.fileHash;
+    var info = treeInfo[dirName][fileName] = JSON.parse(JSON.stringify(FILE_TEMPLATE)); // ... clone FILE_TEMPLATE
+    info.objectHash = hash;
+}
+
+function injectHashObjectIntoFileInfo(fileName, fileInfo, callback) {
+    injectHashObjectIntoTree(fileName, fileInfo.fileHash, fileInfo.treeInfos);
     callback(null, fileInfo);
 }
 
@@ -307,7 +311,7 @@ module.exports = {
             createHashObject.bind(null, workingDir, buffer, encoding),
             getParentHash.bind(null, branch, workingDir),
             getCurrentTrees.bind(null, workingDir, path),
-            injectHashObjectIntoTree.bind(null, path),
+            injectHashObjectIntoFileInfo.bind(null, path),
             createTrees.bind(null, workingDir, path),
             createCommit.bind(null, workingDir, commitInfo),
             updateBranch.bind(null, branch, workingDir),
@@ -375,7 +379,7 @@ module.exports = {
             getCurrentTrees.bind(null, workingDir, source),
             copyFileHash.bind(null, source),
             getCurrentTrees.bind(null, workingDir, destination),
-            injectHashObjectIntoTree.bind(null, destination),
+            injectHashObjectIntoFileInfo.bind(null, destination),
             createTrees.bind(null, workingDir, destination),
             createCommit.bind(null, workingDir, commitInfo),
             updateBranch.bind(null, branch, workingDir),
@@ -440,8 +444,10 @@ module.exports = {
     util: {
 
         createHashObjectFromFile: createHashObjectFromFile,
+        injectHashObjectIntoTree: injectHashObjectIntoTree,
         treeFromString: treeFromString,
-        stringFromTree: stringFromTree
+        stringFromTree: stringFromTree,
+        getTree: getTree,
 
     }
 
