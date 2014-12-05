@@ -47,7 +47,7 @@ function stringFromTree(tree) {
     return lines.join('\n');
 }
 
-
+/********************************************************************************/
 
 function ensureBranch(branch, workingDir, callback) {
     exec('git', ['branch', '--list', branch], { cwd: workingDir }, function(err, stdout, stderr) {
@@ -101,6 +101,32 @@ function createHashObjectFromFile(workingDir, fileName, callback) {
     exec('git', ['hash-object', '-t', 'blob', '-w', fileName], { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
         callback(null, stdout.trimRight());
+    });
+}
+
+function listCommits(commitish, workingDir, callback) {
+    exec('git', ['rev-list', commitish, '--no-merges', '--pretty=oneline'], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        stdout = stdout.trimRight();
+        if (stdout == '') return callback(null, []);
+        callback(null, stdout.split('\n').map(function(line) {
+            var commit = line.match('^([0-9a-f]+) (.*)$');
+            return { commitId: commit[1], message: commit[2] };
+        }));
+    });
+}
+
+function getStashHash(branch, workingDir, callback) {
+    listCommits('..' + branch, workingDir, function(err, commits) {
+        if (err) return callback(err);
+        var stash = commits.reduce(function(found, item) {
+                if (found) return found;
+                return item.message == TMP_COMMIT_MESSAGE ? item : null;
+            }, null);
+        if (!stash)
+            callback(new Error('Could not find stash!'));
+        else
+            callback(null, stash.commitId);
     });
 }
 
@@ -446,10 +472,12 @@ module.exports = {
 
         createHashObjectFromFile: createHashObjectFromFile,
         injectHashObjectIntoTree: injectHashObjectIntoTree,
+        getStashHash: getStashHash,
         getTree: getTree,
         createTrees: createTrees,
         createCommit: createCommit,
-        updateBranch: updateBranch
+        updateBranch: updateBranch,
+        listCommits: listCommits
 
     }
 
