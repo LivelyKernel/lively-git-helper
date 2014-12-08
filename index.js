@@ -116,6 +116,22 @@ function listCommits(commitish, workingDir, callback) {
     });
 }
 
+function readCommit(commitish, workingDir, callback) {
+    exec('git', ['--no-pager', 'diff', '-U0', '--full-index', commitish + '^', commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        var changes = stdout.split('\n').reduce(function(all, line) {
+            if (line.trim() != '') {
+                if (line.substr(0, 5) == 'diff ')
+                    all.push(line);
+                else
+                    all[all.length -1] += '\n' + line;
+            }
+            return all;
+        }, []);
+        callback(null, changes);
+    });
+}
+
 function getStashHash(branch, workingDir, callback) {
     listCommits('..' + branch, workingDir, function(err, commits) {
         if (err) return callback(err);
@@ -130,7 +146,24 @@ function getStashHash(branch, workingDir, callback) {
     });
 }
 
-function getParentHash(branch, workingDir, fileInfo, callback) {
+function getBranchesByHash(commitish, workingDir, callback) {
+    exec('git', ['branch', '--contains', commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        var branches = stdout.trimRight().split('\n').map(function(branch) {
+            return branch.trim();
+        });
+        callback(null, branches);
+    });
+}
+
+function getParentHash(commitish, workingDir, callback) {
+    exec('git', ['log', '--pretty=%H', '-n', '1', commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        callback(null, stdout.trimRight());
+    });
+}
+
+function getParentHashOfStash(branch, workingDir, fileInfo, callback) {
     exec('git', ['log', '--pretty=%H %s', '-n', '1', branch], { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
         var lineInfo = stdout.trimRight().match(/^([0-9a-f]+) (.*)$/);
@@ -140,9 +173,9 @@ function getParentHash(branch, workingDir, fileInfo, callback) {
             // need to ammend last commit
             fileInfo.stash = fileInfo.parent;
             // get real parent's hash
-            exec('git', ['log', '--pretty=%H', '-n', '1', fileInfo.stash + '^1'], { cwd: workingDir }, function(err, stdout, stderr) {
+            getParentHash(fileInfo.stash + '^1', workingDir, function(err, parent) {
                 if (err) return callback(err);
-                fileInfo.parent = stdout.trimRight();
+                fileInfo.parent = parent;
                 callback(null, fileInfo);
             });
         } else
@@ -336,7 +369,7 @@ module.exports = {
         async.waterfall([
             ensureBranch.bind(null, branch, workingDir),
             createHashObject.bind(null, workingDir, buffer, encoding),
-            getParentHash.bind(null, branch, workingDir),
+            getParentHashOfStash.bind(null, branch, workingDir),
             getCurrentTrees.bind(null, workingDir, path),
             injectHashObjectIntoFileInfo.bind(null, path),
             createTrees.bind(null, workingDir),
@@ -358,7 +391,7 @@ module.exports = {
 
         async.waterfall([
             ensureBranch.bind(null, branch, workingDir),
-            getParentHash.bind(null, branch, workingDir, {}),
+            getParentHashOfStash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, path),
             injectEmptyDirIntoTree.bind(null, workingDir, path),
             createTrees.bind(null, workingDir),
@@ -380,7 +413,7 @@ module.exports = {
 
         async.waterfall([
             ensureBranch.bind(null, branch, workingDir),
-            getParentHash.bind(null, branch, workingDir, {}),
+            getParentHashOfStash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, path),
             removeObjectFromTree.bind(null, path),
             createTrees.bind(null, workingDir),
@@ -402,7 +435,7 @@ module.exports = {
 
         async.waterfall([
             ensureBranch.bind(null, branch, workingDir),
-            getParentHash.bind(null, branch, workingDir, {}),
+            getParentHashOfStash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, source),
             copyFileHash.bind(null, source),
             getCurrentTrees.bind(null, workingDir, destination),
@@ -472,12 +505,15 @@ module.exports = {
 
         createHashObjectFromFile: createHashObjectFromFile,
         injectHashObjectIntoTree: injectHashObjectIntoTree,
+        getBranchesByHash: getBranchesByHash,
+        getParentHash: getParentHash,
         getStashHash: getStashHash,
         getTree: getTree,
         createTrees: createTrees,
         createCommit: createCommit,
         updateBranch: updateBranch,
-        listCommits: listCommits
+        listCommits: listCommits,
+        readCommit: readCommit
 
     }
 
