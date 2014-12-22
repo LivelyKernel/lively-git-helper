@@ -51,7 +51,11 @@ function stringFromTree(tree) {
 
 function ensureBranch(branch, workingDir, callback) {
     exec('git', ['branch', '--list', branch], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
+        if (err) {
+            if (err.code == 128 && !err.killed) // fatal error, mostly not a git repo
+                err.code = 'NONGIT';
+            return callback(err);
+        }
         if (stdout.trim() != '') return callback(); // branch already existing
 
         // Create a branch but also include everything that is
@@ -462,8 +466,23 @@ module.exports = {
                 callback(null, true);
             else if (!err.killed && err.code == 1) {
                 callback(null, false);
-            } else
+            } else {
+                if (err.code == 128 && !err.killed) // fatal error, mostly not a git repo
+                    err.code = 'NONGIT';
                 callback(err);
+            }
+        });
+    },
+
+    gitPath: function(workingDir, callback) {
+        workingDir = path.resolve(process.env.PWD, workingDir);
+        exec('git', ['rev-parse', '--show-cdup'], { cwd: workingDir }, function(err, stdout, stderr) {
+            if (err) {
+                if (err.code == 'ENOENT' && err.errno == 'ENOENT') // fatal error, mostly non-existant working dir
+                    err.code = 'NOTADIR';
+                return callback(err);
+            }
+            callback(null, path.resolve(workingDir, stdout.trimRight()));
         });
     },
 

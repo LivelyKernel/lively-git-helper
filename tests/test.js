@@ -1,4 +1,5 @@
-var gitHelper = require('../index.js');
+var gitHelper = require('../index.js'),
+    path = require('path');
 
 function generateRandomStr(len) {
     len = isNaN(len) ? 5 : len;
@@ -21,6 +22,28 @@ var tests = {
         gitHelper.removeBranch(this.branch, '.', callback);
     },
 
+    testFindGitDir: function(test) {
+        var cwd = process.env.PWD;
+        gitHelper.gitPath('.', function(err, dir) {
+            test.ifError(err, 'caught error when finding git');
+            test.equal(cwd, dir, 'did not find git dir at current dir (' + cwd + ' vs. ' + dir + ')');
+            gitHelper.gitPath('tests', function(err, dir) {
+                test.ifError(err, 'caught error when finding git');
+                test.equal(cwd, dir, 'did not find git dir at current dir (' + cwd + ' vs. ' + dir + ')');
+                test.done();
+            });
+        });
+    },
+
+    testFindGitDirNotExistent: function(test) {
+        var cwd = process.env.PWD;
+        gitHelper.gitPath('foobar', function(err, dir) {
+            test.ok(err instanceof Error, 'did not get an error when finding git in non-existent directory');
+            test.equal('NOTADIR', err.code, 'non-existent directory did not report back "NOTADIR" code');
+            test.done();
+        });
+    },
+
     testFileTypeIsFile: function(test) {
         var self = this;
         gitHelper.fileType(this.branch, '.', 'package.json', function(err, isDir) {
@@ -35,6 +58,15 @@ var tests = {
         gitHelper.fileType(this.branch, '.', 'tests', function(err, isDir) {
             test.ifError(err, 'caught error when checking "' + self.branch + '" for tests');
             test.ok(isDir, 'tests in "' + self.branch + '" should be a directory');
+            test.done();
+        });
+    },
+
+    testFileTypeOfNonGit: function(test) {
+        var self = this;
+        gitHelper.fileType(this.branch, '/tmp/', 'foobar', function(err, isDir) {
+            test.ok(err instanceof Error, 'did not get an error when checking "' + self.branch + '" in non-git directory');
+            test.equal('NONGIT', err.code, '/tmp repository did not report back "NONGIT" code');
             test.done();
         });
     },
@@ -113,6 +145,14 @@ var tests = {
                 test.ok(!ignored, 'package.json should not be ignored (in the currenty working copy)');
                 test.done();
             });
+        });
+    },
+
+    testIsIgnoredInNonGit: function(test) {
+        gitHelper.isIgnored('/tmp/', 'foobar', function(err, ignored) {
+            test.ok(err instanceof Error, 'did not get an error when checking non-git directory for ignored file');
+            test.equal('NONGIT', err.code, '/tmp repository did not report back "NONGIT" code');
+            test.done();
         });
     },
 
