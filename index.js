@@ -120,8 +120,16 @@ function listCommits(commitish, workingDir, callback) {
     });
 }
 
-function readCommit(commitish, workingDir, callback) {
-    exec('git', ['--no-pager', 'diff', '-U0', '--full-index', commitish + '^', commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+function readCommit(commitish, workingDir, optBaseDir, callback) {
+    if (optBaseDir instanceof Function) {
+        callback = optBaseDir;
+        optBaseDir = workingDir;
+    }
+    var relPath = path.relative(optBaseDir, workingDir),
+        srcPrefix = 'a/' + (relPath != '' ? relPath + '/' : ''),
+        dstPrefix = 'b/' + (relPath != '' ? relPath + '/' : '');
+    exec('git', ['--no-pager', 'diff', '-U0', '--full-index', '--src-prefix', srcPrefix, '--dst-prefix', dstPrefix, commitish + '^', commitish],
+        { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
         var changes = stdout.split('\n').reduce(function(all, line) {
             if (line.trim() != '') {
