@@ -532,6 +532,7 @@ module.exports = {
 
         createHashObjectFromFile: createHashObjectFromFile,
         injectHashObjectIntoTree: injectHashObjectIntoTree,
+        removeObjectFromTree: removeObjectFromTree,
         getBranchesByHash: getBranchesByHash,
         getParentHash: getParentHash,
         getStashHash: getStashHash,
