@@ -187,6 +187,27 @@ var tests = {
             test.ok(branches.indexOf('master') > -1, 'could not find master in the list of branches');
             test.done();
         });
+    },
+
+    testCommitNotes: function(test) {
+        var commitId = '1a038771857d371ab9ce6f0cd83c6d8fb58f4f1e',
+            commitNote = 'This is a simple commit note.';
+
+        gitHelper.util.removeCommitNote('.', commitId, function(err) {
+            test.ifError(err, 'did get error when removing notes from ' + commitId);
+            gitHelper.util.getCommitNote('.', commitId, function(err, note) {
+                test.ifError(err, 'did get error when reading note for ' + commitId);
+                test.equal(note, null, 'did not get an empty note when reading ' + commitId);
+                gitHelper.util.addCommitNote('.', commitId, commitNote, function(err) {
+                    test.ifError(err, 'did get error when adding note for ' + commitId);
+                    gitHelper.util.getCommitNote('.', commitId, function(err, note) {
+                        test.ifError(err, 'did get error when reading note for ' + commitId);
+                        test.equal(note, commitNote, 'did not get back the stored note when reading ' + commitId);
+                        test.done();
+                    });
+                });
+            });
+        });
     }
 
 };

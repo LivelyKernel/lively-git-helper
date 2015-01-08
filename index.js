@@ -336,6 +336,31 @@ function updateBranch(branch, workingDir, fileInfo, callback) {
     });
 }
 
+function addCommitNote(workingDir, commitId, note, callback) {
+    exec('git', ['notes', 'append', '-m', note, commitId], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        callback(null);
+    });
+}
+
+function getCommitNote(workingDir, commitId, callback) {
+    exec('git', ['notes', 'show', commitId], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) {
+            if (err.code == 1)
+                return callback(null, null);
+            return callback(new Error(err));
+        }
+        callback(null, stdout.trimRight());
+    });
+}
+
+function removeCommitNote(workingDir, commitId, callback) {
+    exec('git', ['notes', 'remove', '--ignore-missing', commitId], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        callback(null);
+    });
+}
+
 module.exports = {
 
     fileType: function(branch, workingDir, path, callback) {
@@ -541,7 +566,10 @@ module.exports = {
         createCommit: createCommit,
         updateBranch: updateBranch,
         listCommits: listCommits,
-        readCommit: readCommit
+        readCommit: readCommit,
+        addCommitNote: addCommitNote,
+        getCommitNote: getCommitNote,
+        removeCommitNote: removeCommitNote
 
     }
 
