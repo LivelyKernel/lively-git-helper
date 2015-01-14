@@ -511,7 +511,8 @@ module.exports = {
         workingDir = path.resolve(process.env.PWD, workingDir);
         exec('git', ['rev-parse', '--show-cdup'], { cwd: workingDir }, function(err, stdout, stderr) {
             if (err) {
-                if (err.code == 'ENOENT' && err.errno == 'ENOENT') // fatal error, mostly non-existant working dir
+                if ((err.code == 'ENOENT' && err.errno == 'ENOENT') ||
+                    (err.code == 'ENOTDIR' && err.errno == 'ENOTDIR')) // fatal error, mostly non-existent working dir
                     err.code = 'NOTADIR';
                 return callback(err);
             }
