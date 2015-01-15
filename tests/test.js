@@ -208,6 +208,27 @@ var tests = {
                 });
             });
         });
+    },
+
+    testDiffCommits: function(test) {
+        var testBranch = 'TESTING_do_not_change',
+            addCommit = 'c3b20aa980bef5a352b016c752ffe8439d3c2781';
+
+        gitHelper.util.diffCommits(testBranch, '.', function(err, diff) { // single commitish
+            test.ifError(err, 'did get error when diffing commits for ' + testBranch);
+            test.equal(diff.added.length, 2, 'did not find the correct number of added commits in ' + testBranch);
+            test.ok(diff.missing.length > 0, 'did not find the correct number of missing commits in ' + testBranch);
+            gitHelper.util.diffCommits(testBranch, addCommit, '.', function(err, diff) { // two commitishs (no branch but commit)
+                test.ifError(err, 'did get error when diffing commits for ' + testBranch);
+                test.equal(diff.added.length, 2, 'did not find the correct number of added commits in ' + testBranch + ' compared to ' + addCommit);
+                test.equal(diff.missing.length,1 , 'did not find the correct number of missing commits in ' + testBranch + ' compared to ' + addCommit);
+                gitHelper.util.diffCommits('foobar123654', '.', function(err, diff) { // non-existing
+                    test.ok(err instanceof Error, 'did not get an error when diffing commits for non-existing commitish');
+                    test.equal('NOTACOMMIT', err.code, 'non-existent commitish did not report back "NOTACOMMIT" code');
+                    test.done();
+                });
+            });
+        });
     }
 
 };
