@@ -110,7 +110,11 @@ function createHashObjectFromFile(workingDir, fileName, callback) {
 
 function listCommits(commitish, workingDir, callback) {
     exec('git', ['rev-list', commitish, '--no-merges', '--pretty=oneline'], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
+        if (err) {
+            if (err.code == 128 && !err.killed) // fatal error, mostly not a valid commit(ish)
+                err.code = 'NOTACOMMIT';
+            return callback(err);
+        }
         stdout = stdout.trimRight();
         if (stdout == '') return callback(null, []);
         callback(null, stdout.split('\n').map(function(line) {
