@@ -1,1 +1,1 @@
-This is a file for tests.
+This is a file for testing diffCommit!
