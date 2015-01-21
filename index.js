@@ -392,6 +392,13 @@ function removeCommitNote(workingDir, commitId, callback) {
     });
 }
 
+function findCommonBase(commitish1, commitish2, workingDir, callback) {
+    exec('git', ['merge-base', commitish1, commitish2], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        callback(null, stdout.trimRight());
+    });
+}
+
 module.exports = {
 
     fileType: function(branch, workingDir, path, callback) {
@@ -602,7 +609,8 @@ module.exports = {
         readCommit: readCommit,
         addCommitNote: addCommitNote,
         getCommitNote: getCommitNote,
-        removeCommitNote: removeCommitNote
+        removeCommitNote: removeCommitNote,
+        findCommonBase: findCommonBase
 
     }
 
