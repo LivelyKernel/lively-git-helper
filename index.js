@@ -202,6 +202,39 @@ function readCommit(commitish, workingDir, optBaseDir, callback) {
     });
 }
 
+function readCommitInfo(commitish, workingDir, callback) {
+    var format = [
+        'commit: %H',
+        'parents: %P',
+        'author: %an (%ae)',
+        'author date: %aD',
+        'commiter: %cn (%ce)',
+        'commiter date: %cD',
+        'message:%n%B%x00',
+        'notes:%n%N'
+    ].join('%n');
+    exec('git', ['show', '--quiet', '--format=' + format, commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) return callback(err);
+        try {
+            var info = {
+                commitId: stdout.match(/^commit: ([0-9a-f]+)$/m)[1],
+                parentIds: stdout.match(/^parents: ([0-9a-f ]+)$/m)[1].split(' '),
+                author: stdout.match(/^author: (.*) \(.*\)$/m)[1],
+                authorEmail: stdout.match(/^author: .* \((.*)\)$/m)[1],
+                authorDate: new Date(stdout.match(/^author date: (.*)$/m)[1]),
+                commiter: stdout.match(/^commiter: (.*) \(.*\)$/m)[1],
+                commiterEmail: stdout.match(/^commiter: .* \((.*)\)$/m)[1],
+                commiterDate: new Date(stdout.match(/^commiter date: (.*)$/m)[1]),
+                message: stdout.match(/^message:\n([\s\S]*)\x00$/m)[1].trim(),
+                notes: stdout.match(/\x00\nnotes:\n([\s\S]*)$/)[1].trim()
+            };
+        } catch (e) {
+            callback(e);
+        }
+        callback(null, info);
+    });
+}
+
 function getStashHash(branch, workingDir, callback) {
     listCommits('..' + branch, workingDir, function(err, commits) {
         if (err) return callback(err);
@@ -724,6 +757,7 @@ module.exports = {
         listCommits: listCommits,
         diffCommits: diffCommits,
         readCommit: readCommit,
+        readCommitInfo: readCommitInfo,
         addCommitNote: addCommitNote,
         getCommitNote: getCommitNote,
         removeCommitNote: removeCommitNote,
