@@ -178,7 +178,7 @@ function diffCommits(commitish1, commitish2, workingDir, callback) {
     });
 }
 
-function readCommit(commitish, workingDir, optBaseDir, callback) {
+function readCommit(workingDir, commitish, optBaseDir, callback) {
     if (optBaseDir instanceof Function) {
         callback = optBaseDir;
         optBaseDir = workingDir;
@@ -202,7 +202,7 @@ function readCommit(commitish, workingDir, optBaseDir, callback) {
     });
 }
 
-function readCommitInfo(commitish, workingDir, callback) {
+function readCommitInfo(workingDir, commitish, callback) {
     var format = [
         'commit: %H',
         'parents: %P',
