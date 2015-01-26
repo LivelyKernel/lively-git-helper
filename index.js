@@ -435,6 +435,8 @@ function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo,
         });
 
     // assemble tree info
+    if (fileInfo.treeInfos == null)
+        fileInfo.treeInfos = {};
     async.reduce(filenames, fileInfo.treeInfos, function(tree, filename, next) {
         if (filename == null) return tree;
         getTree(workingDir, filename, fileInfo.parent, tree, next);
