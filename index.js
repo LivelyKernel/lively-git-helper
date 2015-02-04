@@ -186,18 +186,10 @@ function readCommit(workingDir, commitish, optBaseDir, callback) {
     var relPath = path.relative(optBaseDir, workingDir),
         srcPrefix = 'a/' + (relPath != '' ? relPath + '/' : ''),
         dstPrefix = 'b/' + (relPath != '' ? relPath + '/' : '');
-    exec('git', ['--no-pager', 'diff', '-U0', '--full-index', '--src-prefix', srcPrefix, '--dst-prefix', dstPrefix, commitish + '^', commitish],
+    exec('git', ['--no-pager', 'diff', '-U3', '--full-index', '--src-prefix', srcPrefix, '--dst-prefix', dstPrefix, commitish + '^', commitish],
         { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
-        var changes = stdout.split('\n').reduce(function(all, line) {
-            if (line.trim() != '') {
-                if (line.substr(0, 5) == 'diff ')
-                    all.push(line);
-                else
-                    all[all.length -1] += '\n' + line;
-            }
-            return all;
-        }, []);
+        var changes = stdout.substr(0, stdout.length -1).split(/\n(?=diff)/g);
         callback(null, changes);
     });
 }
