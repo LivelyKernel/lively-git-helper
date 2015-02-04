@@ -463,17 +463,21 @@ function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo,
                 }
                 args.push(tempFile);
                 var patch = spawn('patch', args, { cwd: workingDir }),
+                    stdout = '',
                     stderr = '';
                 patch.stderr.on('data', function(buffer) {
                     stderr += buffer.toString();
+                });
+                patch.stdout.on('data', function(buffer) {
+                    stdout += buffer.toString();
                 });
                 patch.on('close', function(code) {
                     if (code == 0)
                         next(null, doubleHash, tempFile);
                     else
-                        next(new Error(stderr));
+                        next(new Error(stderr != '' ? stderr : stdout));
                 });
-                patch.stdin.end(commitObjects[doubleHash].diffs.join('\n'));
+                patch.stdin.end(commitObjects[doubleHash].diffs.join('\n'), 'binary');
             },
             function saveOrDeleteTempFile(doubleHash, tempFile, next) {
                 var newFilename = getNewFilename(commitObjects[doubleHash].diffs[0]);
