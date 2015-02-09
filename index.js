@@ -198,6 +198,7 @@ function readCommitInfo(workingDir, commitish, callback) {
     var format = [
         'commit: %H',
         'parents: %P',
+        'tree: %T',
         'author: %an (%ae)',
         'author date: %aD',
         'commiter: %cn (%ce)',
@@ -211,6 +212,7 @@ function readCommitInfo(workingDir, commitish, callback) {
             var info = {
                 commitId: stdout.match(/^commit: ([0-9a-f]+)$/m)[1],
                 parentIds: stdout.match(/^parents: ([0-9a-f ]+)$/m)[1].split(' '),
+                treeId: stdout.match(/^tree: ([0-9a-f]+)$/m)[1],
                 author: stdout.match(/^author: (.*) \(.*\)$/m)[1],
                 authorEmail: stdout.match(/^author: .* \((.*)\)$/m)[1],
                 authorDate: new Date(stdout.match(/^author date: (.*)$/m)[1]),
@@ -221,7 +223,7 @@ function readCommitInfo(workingDir, commitish, callback) {
                 notes: stdout.match(/\x00\nnotes:\n([\s\S]*)$/)[1].trim()
             };
         } catch (e) {
-            callback(e);
+            return callback(e);
         }
         callback(null, info);
     });
