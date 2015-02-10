@@ -189,7 +189,8 @@ function readCommit(workingDir, commitish, optBaseDir, callback) {
     exec('git', ['--no-pager', 'diff', '-U3', '--full-index', '--src-prefix', srcPrefix, '--dst-prefix', dstPrefix, commitish + '^', commitish],
         { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
-        var changes = stdout.substr(0, stdout.length -1).split(/\n(?=diff)/g);
+        stdout = stdout.substr(0, stdout.length -1);
+        var changes = (stdout != '' ? stdout.split(/\n(?=diff)/g) : []);
         callback(null, changes);
     });
 }
@@ -415,6 +416,15 @@ function createCommit(workingDir, commitInfo, message, fileInfo, callback) {
 }
 
 function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo, callback) {
+    if (diffs.length == 0) { // create empty commit
+        readCommitInfo(workingDir, fileInfo.parent, function(err, info) {
+            if (err) return callback(err);
+            fileInfo.rootTree = info.treeId;
+            createCommit(workingDir, commitInfo, message, fileInfo, callback);
+        });
+        return;
+    }
+
     var commitObjects = diffs.reduce(function(list, diff) {
         var hash = getOldFileHash(diff) + '-' + getNewFileHash(diff) + '-' + (getNewFilename(diff) || '');
         if (!list.hasOwnProperty(hash))
