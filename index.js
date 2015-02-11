@@ -66,7 +66,7 @@ function getNewFilename(diff) {
 }
 
 function removeTempFiles(files, tempDir) {
-    async.each(files, function(file, callback) {
+    async.each(files.concat(files.map(function(file) { return file + '.orig'; })), function(file, callback) {
         fs.unlink(path.join(tempDir, file), callback);
     },
     function() {
