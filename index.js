@@ -454,7 +454,15 @@ function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo,
                 var hashes = doubleHash.split('-');
                 if ((hashes[0] == '0000000000000000000000000000000000000000') || (hashes[1] == '0000000000000000000000000000000000000000'))
                     return next(null, doubleHash, null);
-                exec('git', ['unpack-file', hashes[0]], { cwd: workingDir },
+
+                var filename = path.basename(hashes[2]),
+                    dirname = path.dirname(hashes[2]);
+                if (dirname == '.')
+                    dirname = '';
+                else
+                    dirname += '/';
+                var fileHash = fileInfo.treeInfos[dirname][filename].objectHash;
+                exec('git', ['unpack-file', fileHash], { cwd: workingDir },
                 function(err, stdout, stderr) {
                     if (err) return next(err);
                     var tempFile = stdout.trimRight();
