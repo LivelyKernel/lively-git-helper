@@ -464,7 +464,7 @@ function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo,
                 });
             },
             function patchTempFile(doubleHash, tempFile, next) {
-                var args = []
+                var args = ['-u', '-F', '3'];
                 if (tempFile == null) {
                     var hash = doubleHash.split('-')[1];
                     if (hash == '0000000000000000000000000000000000000000')
@@ -489,7 +489,7 @@ function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo,
                     else
                         next(new Error(stderr != '' ? stderr : stdout));
                 });
-                patch.stdin.end(commitObjects[doubleHash].diffs.join('\n'), 'binary');
+                patch.stdin.end(commitObjects[doubleHash].diffs.join('\n') + '\n', 'binary'); // new line IMPORTANT for patch
             },
             function saveOrDeleteTempFile(doubleHash, tempFile, next) {
                 var newFilename = getNewFilename(commitObjects[doubleHash].diffs[0]);
