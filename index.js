@@ -208,7 +208,11 @@ function readCommitInfo(workingDir, commitish, callback) {
         'notes:%n%N'
     ].join('%n');
     exec('git', ['show', '--quiet', '--format=' + format, commitish], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
+        if (err) {
+            if (err.code == 128 && !err.killed) // fatal error, mostly not a valid commit(ish)
+                err.code = 'NOTACOMMIT';
+            return callback(err);
+        }
         try {
             var info = {
                 commitId: stdout.match(/^commit: ([0-9a-f]+)$/m)[1],
