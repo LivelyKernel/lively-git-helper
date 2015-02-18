@@ -157,7 +157,7 @@ function diffCommits(commitish1, commitish2, workingDir, callback) {
         workingDir = commitish2;
         commitish2 = ''; // HEAD, master whatever
     }
-    exec('git', ['log', '--left-right', '--cherry-pick', '--format=commit %m %H %s%n%N', commitish1 + '...' + commitish2],
+    exec('git', ['log', '--left-right', '--cherry-pick', '--format=%m %H %s', commitish1 + '...' + commitish2],
         { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) {
             if (err.code == 128 && !err.killed) // fatal error, mostly not a valid commit(ish) combination
@@ -166,9 +166,9 @@ function diffCommits(commitish1, commitish2, workingDir, callback) {
         }
         stdout = stdout.trimRight();
         if (stdout == '') return callback(null, []);
-        callback(null, stdout.split(/commit (?=[<>])/).slice(1).reduce(function(res, lines) {
-            var parsed = lines.match(/^([<>]) ([0-9a-f]+) (.*)(?:\n([\s\S]*))?$/m),
-                commit = { commitId: parsed[2], message: parsed[3], note: (parsed[4] ? parsed[4].trimRight() : null) };
+        callback(null, stdout.split('\n').reduce(function(res, lines) {
+            var parsed = lines.match(/^([<>]) ([0-9a-f]+) (.*)?$/),
+                commit = { commitId: parsed[2], message: parsed[3], note: null };
             if (parsed[1] == '<')
                 res.added.push(commit);
             else
