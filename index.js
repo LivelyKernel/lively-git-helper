@@ -195,19 +195,28 @@ function readCommit(workingDir, commitish, optBaseDir, callback) {
     });
 }
 
-function readCommitInfo(workingDir, commitish, callback) {
+function readCommitInfo(workingDir, commitish, namespace, callback) {
     var format = [
-        'commit: %H',
-        'parents: %P',
-        'tree: %T',
-        'author: %an (%ae)',
-        'author date: %aD',
-        'commiter: %cn (%ce)',
-        'commiter date: %cD',
-        'message:%n%B%x00',
-        'notes:%n%N'
-    ].join('%n');
-    exec('git', ['show', '--quiet', '--format=' + format, commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+            'commit: %H',
+            'parents: %P',
+            'tree: %T',
+            'author: %an (%ae)',
+            'author date: %aD',
+            'commiter: %cn (%ce)',
+            'commiter date: %cD',
+            'message:%n%B%x00',
+            'notes:%n%N'
+        ].join('%n'),
+        args = ['show', '--quiet', '--format=' + format];
+    if ((callback === undefined) && (namespace instanceof Function)) {
+        callback = namespace;
+        namespace = null;
+    }
+    if (namespace)
+        args.push('--notes=' + namespace);
+    args.push(commitish);
+
+    exec('git', args, { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) {
             if (err.code == 128 && !err.killed) // fatal error, mostly not a valid commit(ish)
                 err.code = 'NOTACOMMIT';
@@ -538,15 +547,33 @@ function updateBranch(branch, workingDir, fileInfo, callback) {
     });
 }
 
-function addCommitNote(workingDir, commitId, note, callback) {
-    exec('git', ['notes', 'append', '-m', note, commitId], { cwd: workingDir }, function(err, stdout, stderr) {
+function addCommitNote(workingDir, commitId, note, namespace, callback) {
+    if ((callback === undefined) && (namespace instanceof Function)) {
+        callback = namespace;
+        namespace = null;
+    }
+    var args = ['notes'];
+    if (namespace)
+        args.push('--ref=' + namespace);
+    args.push('append', '-m', note, commitId);
+
+    exec('git', args, { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
         callback(null);
     });
 }
 
-function getCommitNote(workingDir, commitId, callback) {
-    exec('git', ['notes', 'show', commitId], { cwd: workingDir }, function(err, stdout, stderr) {
+function getCommitNote(workingDir, commitId, namespace, callback) {
+    if ((callback === undefined) && (namespace instanceof Function)) {
+        callback = namespace;
+        namespace = null;
+    }
+    var args = ['notes'];
+    if (namespace)
+        args.push('--ref=' + namespace);
+    args.push('show', commitId);
+
+    exec('git', args, { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) {
             if (err.code == 1)
                 return callback(null, null);
@@ -556,8 +583,17 @@ function getCommitNote(workingDir, commitId, callback) {
     });
 }
 
-function removeCommitNote(workingDir, commitId, callback) {
-    exec('git', ['notes', 'remove', '--ignore-missing', commitId], { cwd: workingDir }, function(err, stdout, stderr) {
+function removeCommitNote(workingDir, commitId, namespace, callback) {
+    if ((callback === undefined) && (namespace instanceof Function)) {
+        callback = namespace;
+        namespace = null;
+    }
+    var args = ['notes'];
+    if (namespace)
+        args.push('--ref=' + namespace);
+    args.push('remove', '--ignore-missing', commitId);
+
+    exec('git', args, { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
         callback(null);
     });
