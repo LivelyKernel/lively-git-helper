@@ -624,6 +624,22 @@ function findCommonBase(commitish1, commitish2, workingDir, callback) {
     });
 }
 
+function toLocalISODateString(date) {
+    var offset = date.getTimezoneOffset(),
+        diff = offset < 0 ? '+' : '-';
+    if (offset < 0) offset = Math.abs(offset);
+
+    function withPadding(num) {
+        var norm = Math.abs(Math.floor(num));
+        return (norm < 10 ? '0' : '') + norm;
+    }
+
+    var isoString = date.getFullYear() + '-' + withPadding(date.getMonth() + 1) + '-' + withPadding(date.getDate())
+                  + 'T' + withPadding(date.getHours()) + ':' + withPadding(date.getMinutes()) + ':' + withPadding(date.getSeconds()) 
+                  + diff + withPadding(offset / 60) + ':' + withPadding(offset % 60);
+    return isoString;
+}
+
 module.exports = {
 
     fileType: function(branch, workingDir, path, callback) {
@@ -840,7 +856,8 @@ module.exports = {
         addCommitNote: addCommitNote,
         getCommitNote: getCommitNote,
         removeCommitNote: removeCommitNote,
-        findCommonBase: findCommonBase
+        findCommonBase: findCommonBase,
+        toLocalISODateString: toLocalISODateString,
 
     }
 
