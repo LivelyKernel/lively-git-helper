@@ -3,8 +3,9 @@ var exec = require('child_process').execFile,
     path = require('path'),
     async = require('async');
 
-var START_COMMIT_MESSAGE = '[LV-CHANGESET-START]',
-    TMP_COMMIT_MESSAGE = '[LV-CHANGESET-STASH]',
+var STASH_MESSAGE = 'WIP on Lively ChangeSet',
+    STASH_REF = 'lively-stash',
+    START_COMMIT_MESSAGE = '[LV-CHANGESET-START]',
     FILE_TEMPLATE = {
         fileMode: '100644', // default filemode
         objectType: 'blob',
@@ -14,6 +15,10 @@ var START_COMMIT_MESSAGE = '[LV-CHANGESET-START]',
         objectType: 'tree'
     };
 
+
+function stashForBranch(branch) {
+    return 'refs/' + STASH_REF + '/' + branch;
+}
 
 function treeFromString(str, withoutPath) {
     var objects = str.trimRight().split('\n'),
@@ -76,34 +81,50 @@ function removeTempFiles(files, tempDir) {
 
 /********************************************************************************/
 
-function ensureBranch(branch, workingDir, callback) {
-    exec('git', ['branch', '--list', branch], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) {
-            if (err.code == 128 && !err.killed) // fatal error, mostly not a git repo
-                err.code = 'NONGIT';
+function ensureBranchAndStash(branch, workingDir, callback) {
+    var branchRef = 'refs/heads/' + branch,
+        stashRef = stashForBranch(branch);
+    exec('git', ['show-ref', branchRef, stashRef], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err && err.code == 128 && !err.killed) { // fatal error, mostly not a git repo
+            err.code = 'NONGIT';
             return callback(err);
         }
-        if (stdout.trim() != '') return callback(); // branch already existing
 
-        // Create a branch but also include everything that is
-        // currently pending (uncommited changes, new files, etc.)
-        exec('git', ['add', '-A'], { cwd: workingDir }, function(err, stdout, stderr) {
-            if (err) return callback(err);
-            exec('git', ['commit', '-a', '--allow-empty', '-m', START_COMMIT_MESSAGE], { cwd: workingDir }, function(err, stdout, stderr) {
+        var branchExists = stdout.indexOf(branchRef) > -1,
+            stashExists = stdout.indexOf(stashRef) > -1;
+        if (branchExists && stashExists)
+            callback(); // branch and stash already existing
+        else
+            ensureBranch(ensureStash);
+
+        function ensureBranch(callback) {
+            if (branchExists) return callback(null);
+            // Create a branch but also include everything that is
+            // currently pending (uncommited changes, new files, etc.)
+            exec('git', ['add', '-A'], { cwd: workingDir }, function(err, stdout, stderr) {
                 if (err) return callback(err);
-                exec('git', ['branch', branch], { cwd: workingDir }, function(err, stdout, stderr) {
+                exec('git', ['commit', '-a', '--allow-empty', '-m', START_COMMIT_MESSAGE], { cwd: workingDir }, function(err, stdout, stderr) {
                     if (err) return callback(err);
-                    exec('git', ['reset', '--mixed', 'HEAD^1'], { cwd: workingDir }, function(err, stdout, stderr) {
-                        callback(err);
+                    exec('git', ['branch', branch], { cwd: workingDir }, function(err, stdout, stderr) {
+                        if (err) return callback(err);
+                        exec('git', ['reset', '--mixed', 'HEAD^1'], { cwd: workingDir }, function(err, stdout, stderr) {
+                            callback(err);
+                        });
                     });
                 });
             });
-        });
+        }
+
+        function ensureStash(err) {
+            if (err) return callback(err);
+            // update stash no matter what -- it needs to sit on branch if creation was successfully
+            updateRef(stashRef, workingDir, branchRef, callback);
+        }
     });
 }
 
 function getFileType(branch, workingDir, fileName, callback) {
-    exec('git', ['cat-file', '-t', branch + ':' + fileName], { cwd: workingDir }, function(err, stdout, stderr) {
+    exec('git', ['cat-file', '-t', stashForBranch(branch) + ':' + fileName], { cwd: workingDir }, function(err, stdout, stderr) {
         if (err) return callback(err);
         callback(null, stdout.trimRight() == 'tree');
     });
@@ -244,26 +265,9 @@ function readCommitInfo(workingDir, commitish, namespace, callback) {
 }
 
 function getStashHash(branch, workingDir, callback) {
-    listCommits('..' + branch, workingDir, function(err, commits) {
-        if (err) return callback(err);
-        var stash = commits.reduce(function(found, item) {
-                if (found) return found;
-                return item.message == TMP_COMMIT_MESSAGE ? item : null;
-            }, null);
-        if (!stash)
-            callback(new Error('Could not find stash!'));
-        else
-            callback(null, stash.commitId);
-    });
-}
-
-function getBranchesByHash(commitish, workingDir, callback) {
-    exec('git', ['branch', '--contains', commitish], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
-        var branches = stdout.trimRight().split('\n').map(function(branch) {
-            return branch.trim();
-        });
-        callback(null, branches);
+    getParentHashOfStash(branch, workingDir, {}, function(err, info) {
+        if (err || !info.stash) return callback(new Error('Could not find stash!'));
+        callback(null, info.stash);
     });
 }
 
@@ -275,22 +279,25 @@ function getParentHash(commitish, workingDir, callback) {
 }
 
 function getParentHashOfStash(branch, workingDir, fileInfo, callback) {
-    exec('git', ['log', '--pretty=%H %s', '-n', '1', branch], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
-        var lineInfo = stdout.trimRight().match(/^([0-9a-f]+) (.*)$/);
-        fileInfo.parent = lineInfo[1];
-        var parentMessage = lineInfo[2];
-        if (parentMessage == TMP_COMMIT_MESSAGE) {
-            // need to ammend last commit
-            fileInfo.stash = fileInfo.parent;
-            // get real parent's hash
-            getParentHash(fileInfo.stash + '^1', workingDir, function(err, parent) {
-                if (err) return callback(err);
-                fileInfo.parent = parent;
-                callback(null, fileInfo);
-            });
-        } else
-            callback(null, fileInfo);
+    var branchRef = 'refs/heads/' + branch,
+        stashRef = stashForBranch(branch);
+    exec('git', ['show-ref', branchRef, stashRef], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err) {
+            if (err.code == 128 && !err.killed) // fatal error, mostly not a git repo
+                err.code = 'NONGIT';
+            return callback(err); // or refs do not exist!
+        }
+
+        var refs = stdout.trim().split('\n').reduce(function(refs, line) {
+            var ref = line.match('^([0-9a-f]+) (.*)$');
+            refs[ref[2]] = ref[1];
+            return refs;
+        }, {});
+
+        fileInfo.parent = refs[branchRef];
+        if (refs[branchRef] != refs[stashRef])
+            fileInfo.stash = refs[stashRef];
+        callback(null, fileInfo);
     });
 }
 
@@ -420,7 +427,7 @@ function createTrees(workingDir, fileInfo, callback) {
 }
 
 function createCommit(workingDir, commitInfo, message, fileInfo, callback) {
-    message = message || TMP_COMMIT_MESSAGE;
+    message = message || STASH_MESSAGE;
     exec('git', ['commit-tree', fileInfo.rootTree, '-p', fileInfo.parent, '-m', message], { cwd: workingDir, env: commitInfo }, function(err, stdout, stderr) {
         if (err) return callback(err);
         fileInfo.commit = stdout.trimRight();
@@ -540,10 +547,21 @@ function createCommitFromDiffs(workingDir, diffs, commitInfo, message, fileInfo,
     });
 }
 
+function updateRef(ref, workingDir, commitish, callback) {
+    exec('git', ['update-ref', ref, commitish], { cwd: workingDir }, function(err, stdout, stderr) {
+        callback(err);
+    });
+}
+
+function updateStash(branch, workingDir, fileInfo, callback) {
+    updateRef(stashForBranch(branch), workingDir, fileInfo.commit, function(err) {
+        callback(err, fileInfo);
+    });
+}
+
 function updateBranch(branch, workingDir, fileInfo, callback) {
-    exec('git', ['update-ref', 'refs/heads/' + branch, fileInfo.commit], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
-        callback(null, fileInfo);
+    updateRef('refs/heads/' + branch, workingDir, fileInfo.commit, function(err) {
+        callback(err, fileInfo);
     });
 }
 
@@ -610,15 +628,15 @@ module.exports = {
 
     fileType: function(branch, workingDir, path, callback) {
         async.waterfall([
-            ensureBranch.bind(null, branch, workingDir),
+            ensureBranchAndStash.bind(null, branch, workingDir),
             getFileType.bind(null, branch, workingDir, path)
         ], callback);
     },
 
     readDir: function(branch, workingDir, path, callback) {
         async.waterfall([
-            ensureBranch.bind(null, branch, workingDir),
-            exec.bind(exec, 'git', ['ls-tree', branch + ':' + path], { cwd: workingDir }),
+            ensureBranchAndStash.bind(null, branch, workingDir),
+            exec.bind(exec, 'git', ['ls-tree', stashForBranch(branch) + ':' + path], { cwd: workingDir }),
             function(stdout, stderr, cb) {
                 cb(null, treeFromString(stdout));
             }
@@ -627,7 +645,7 @@ module.exports = {
 
     readFile: function(branch, workingDir, path, callback) {
         // no need to check for branch... if it does not exist, this simply fails
-        exec('git', ['--no-pager', 'show', branch + ':' + path], { cwd: workingDir, maxBuffer: 10000*1024, encoding: 'binary' },
+        exec('git', ['--no-pager', 'show', stashForBranch(branch) + ':' + path], { cwd: workingDir, maxBuffer: 10000*1024, encoding: 'binary' },
         function(err, stdout, stderr) {
             if (err)
                 return callback(err);
@@ -649,14 +667,14 @@ module.exports = {
         };
 
         async.waterfall([
-            ensureBranch.bind(null, branch, workingDir),
+            ensureBranchAndStash.bind(null, branch, workingDir),
             createHashObject.bind(null, workingDir, buffer, encoding),
             getParentHashOfStash.bind(null, branch, workingDir),
             getCurrentTrees.bind(null, workingDir, path),
             injectHashObjectIntoFileInfo.bind(null, path),
             createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo, null),
-            updateBranch.bind(null, branch, workingDir),
+            updateStash.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
             }
@@ -672,13 +690,13 @@ module.exports = {
         };
 
         async.waterfall([
-            ensureBranch.bind(null, branch, workingDir),
+            ensureBranchAndStash.bind(null, branch, workingDir),
             getParentHashOfStash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, path),
             injectEmptyDirIntoTree.bind(null, workingDir, path),
             createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo, null),
-            updateBranch.bind(null, branch, workingDir),
+            updateStash.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
             }
@@ -694,13 +712,13 @@ module.exports = {
         };
 
         async.waterfall([
-            ensureBranch.bind(null, branch, workingDir),
+            ensureBranchAndStash.bind(null, branch, workingDir),
             getParentHashOfStash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, path),
             removeObjectFromTree.bind(null, path),
             createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo, null),
-            updateBranch.bind(null, branch, workingDir),
+            updateStash.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
             }
@@ -716,7 +734,7 @@ module.exports = {
         };
 
         async.waterfall([
-            ensureBranch.bind(null, branch, workingDir),
+            ensureBranchAndStash.bind(null, branch, workingDir),
             getParentHashOfStash.bind(null, branch, workingDir, {}),
             getCurrentTrees.bind(null, workingDir, source),
             copyFileHash.bind(null, source),
@@ -724,7 +742,7 @@ module.exports = {
             injectHashObjectIntoFileInfo.bind(null, destination),
             createTrees.bind(null, workingDir),
             createCommit.bind(null, workingDir, commitInfo, null),
-            updateBranch.bind(null, branch, workingDir),
+            updateStash.bind(null, branch, workingDir),
             function(fileInfo, callback) {
                 callback(); // remove fileInfo from callback call
             }
@@ -767,7 +785,7 @@ module.exports = {
 
     lastModified: function(branch, workingDir, path, callback) {
         // no need to check for branch... if it does not exist, this simply fails
-        exec('git', ['log', '-1', '--format=\'%aD\'', branch, '--', path], { cwd: workingDir }, function(err, stdout, stderr) {
+        exec('git', ['log', '-1', '--format=\'%aD\'', stashForBranch(branch), '--', path], { cwd: workingDir }, function(err, stdout, stderr) {
             if (err) return callback(err);
             var dateStr = stdout.trimRight();
             callback(null, dateStr != '' ? new Date(dateStr) : new Date(0));
@@ -795,7 +813,10 @@ module.exports = {
     removeBranch: function(branch, workingDir, callback) {
         exec('git', ['branch', '-D', branch], { cwd: workingDir }, function(err, stdout, stderr) {
             // do not care if the branch never existed
-            callback();
+            exec('git', ['update-ref', '-d', stashForBranch(branch)], { cwd: workingDir }, function(err, stdout, stderr) {
+                // do not care if the ref never existed
+                callback();
+            });
         });
     },
 
@@ -804,7 +825,6 @@ module.exports = {
         createHashObjectFromFile: createHashObjectFromFile,
         injectHashObjectIntoTree: injectHashObjectIntoTree,
         removeObjectFromTree: removeObjectFromTree,
-        getBranchesByHash: getBranchesByHash,
         getParentHash: getParentHash,
         getStashHash: getStashHash,
         getTree: getTree,
@@ -812,6 +832,7 @@ module.exports = {
         createCommit: createCommit,
         createCommitFromDiffs: createCommitFromDiffs,
         updateBranch: updateBranch,
+        updateStash: updateStash,
         listCommits: listCommits,
         diffCommits: diffCommits,
         readCommit: readCommit,
