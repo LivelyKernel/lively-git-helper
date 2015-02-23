@@ -675,9 +675,9 @@ module.exports = {
     },
 
     writeFile: function(branch, workingDir, path, buffer, encoding, callback) {
-        var commitInfo = { // FIXME: use real commit info
-            GIT_AUTHOR_NAME: 'John Doe',
-            GIT_AUTHOR_EMAIL: 'John Doe <john@me.doe>',
+        var commitInfo = {
+            GIT_AUTHOR_NAME: 'Unkown Lively User',
+            GIT_AUTHOR_EMAIL: 'unknown-user@lively-web.local',
             GIT_COMMITTER_NAME: 'Lively ChangeSets',
             GIT_COMMITTER_EMAIL: 'unknown-user@lively-web.local'
         };
@@ -698,9 +698,9 @@ module.exports = {
     },
 
     mkDir: function(branch, workingDir, path, callback) {
-        var commitInfo = { // FIXME: use real commit info
-            GIT_AUTHOR_NAME: 'John Doe',
-            GIT_AUTHOR_EMAIL: 'John Doe <john@me.doe>',
+        var commitInfo = {
+            GIT_AUTHOR_NAME: 'Unkown Lively User',
+            GIT_AUTHOR_EMAIL: 'unknown-user@lively-web.local',
             GIT_COMMITTER_NAME: 'Lively ChangeSets',
             GIT_COMMITTER_EMAIL: 'unknown-user@lively-web.local'
         };
@@ -720,9 +720,9 @@ module.exports = {
     },
 
     unlink: function(branch, workingDir, path, callback) {
-        var commitInfo = { // FIXME: use real commit info
-            GIT_AUTHOR_NAME: 'John Doe',
-            GIT_AUTHOR_EMAIL: 'John Doe <john@me.doe>',
+        var commitInfo = {
+            GIT_AUTHOR_NAME: 'Unkown Lively User',
+            GIT_AUTHOR_EMAIL: 'unknown-user@lively-web.local',
             GIT_COMMITTER_NAME: 'Lively ChangeSets',
             GIT_COMMITTER_EMAIL: 'unknown-user@lively-web.local'
         };
@@ -742,9 +742,9 @@ module.exports = {
     },
 
     copy: function(branch, workingDir, source, destination, callback) {
-        var commitInfo = { // FIXME: use real commit info
-            GIT_AUTHOR_NAME: 'John Doe',
-            GIT_AUTHOR_EMAIL: 'John Doe <john@me.doe>',
+        var commitInfo = {
+            GIT_AUTHOR_NAME: 'Unkown Lively User',
+            GIT_AUTHOR_EMAIL: 'unknown-user@lively-web.local',
             GIT_COMMITTER_NAME: 'Lively ChangeSets',
             GIT_COMMITTER_EMAIL: 'unknown-user@lively-web.local'
         };
