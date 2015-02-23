@@ -810,7 +810,7 @@ module.exports = {
 
     fileSize: function(branch, workingDir, path, callback) {
         // no need to check for branch... if it does not exist, this simply fails
-        exec('git', ['cat-file', '-s', branch + ':' + path], { cwd: workingDir }, function(err, stdout, stderr) {
+        exec('git', ['cat-file', '-s', stashForBranch(branch) + ':' + path], { cwd: workingDir }, function(err, stdout, stderr) {
             if (err || parseInt(stdout) == NaN) return callback(true);
             callback(null, parseInt(stdout));
         });
