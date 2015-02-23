@@ -186,7 +186,7 @@ function diffCommits(commitish1, commitish2, workingDir, callback) {
             return callback(err);
         }
         stdout = stdout.trimRight();
-        if (stdout == '') return callback(null, []);
+        if (stdout == '') return callback(null, { added: [], missing: [] });
         callback(null, stdout.split('\n').reduce(function(res, lines) {
             var parsed = lines.match(/^([<>]) ([0-9a-f]+) (.*)?$/),
                 commit = { commitId: parsed[2], message: parsed[3], note: null };
