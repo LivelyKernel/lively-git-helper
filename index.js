@@ -778,18 +778,20 @@ module.exports = {
                 callback(null, true);
             else if (!err.killed && err.code == 1) {
                 if (stderr.length > 0) { // old git version without check-ignore, fallback
-                  exec('git', ['clean', '-dnX'], { cwd: workingDir }, function(err, stdout) {
-                    if (err) return callback(err);
-                    var ignoredFiles = stdout.substr(0, stdout.length -1).split('\n').map(function(line) {
-                       line = line.indexOf('Would remove ') == 0 ? line.substr(13) : line;
-                       if (line[line.length - 1] == path.sep)
-                         line = line.substr(0, line.length - 1);
-                       return line;
+                    exec('git', ['clean', '-dnX'], { cwd: workingDir }, function(err, stdout) {
+                        if (err) return callback(err);
+                        var ignored = stdout.substr(0, stdout.length -1).split('\n').some(function(line) {
+                            line = line.indexOf('Would remove ') == 0 ? line.substr(13) : line;
+                            if (line[line.length - 1] == path.sep) {
+                                return (line.substr(0, line.length - 1) == fileName) ||
+                                    (fileName.indexOf(line) == 0);
+                            } else
+                                return line == fileName;
+                        });
+                        callback(null, ignored);
                     });
-                    callback(null, ignoredFiles.indexOf(fileName) >= 0);
-                  });
                 } else
-                  callback(null, false);
+                    callback(null, false);
             } else {
                 if (err.code == 128 && !err.killed) // fatal error, mostly not a git repo
                     err.code = 'NONGIT';
