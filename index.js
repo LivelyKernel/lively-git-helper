@@ -124,9 +124,20 @@ function ensureBranchAndStash(branch, workingDir, callback) {
 }
 
 function getFileType(branch, workingDir, fileName, callback) {
-    exec('git', ['cat-file', '-t', stashForBranch(branch) + ':' + fileName], { cwd: workingDir }, function(err, stdout, stderr) {
-        if (err) return callback(err);
-        callback(null, stdout.trimRight() == 'tree');
+    var basePath = path.dirname(fileName),
+        file = path.basename(fileName);
+    if (basePath == '.')
+        basePath = '';
+    basePath += path.sep;
+    exec('git', ['ls-tree', stashForBranch(branch) + ':' + basePath, file], { cwd: workingDir }, function(err, stdout, stderr) {
+        if (err || stdout == '') return callback(err || new Error('Could not find ' + fileName));
+        var info = stdout.match(/^([0-9]+) (tree|blob) /);
+        if (info[1].substr(0, 2) == '12') {
+            err = new Error(fileName + ' is symbolic link!');
+            err.code = 'SYMLINK';
+            callback(err);
+        } else
+            callback(null, info[2] == 'tree');
     });
 }
 
