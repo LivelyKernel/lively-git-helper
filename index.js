@@ -210,6 +210,19 @@ function diffCommits(commitish1, commitish2, workingDir, callback) {
     });
 }
 
+function listChangedFiles(commitish1, commitish2, workingDir, callback) {
+    if (workingDir instanceof Function) {
+        callback = workingDir;
+        workingDir = commitish2;
+        commitish2 = 'HEAD'; // or master?
+    }
+    exec('git', ['diff', '--name-only', commitish1, commitish2], { cwd: workingDir },
+        function(err, stdout, stderr) {
+        if (err) return callback(err);
+        callback(null, stdout.trimRight().split('\n'));
+    });
+}
+
 function readCommit(workingDir, commitish, optBaseDir, callback) {
     if (optBaseDir instanceof Function) {
         callback = optBaseDir;
@@ -876,6 +889,7 @@ module.exports = {
         updateStash: updateStash,
         listCommits: listCommits,
         diffCommits: diffCommits,
+        listChangedFiles: listChangedFiles,
         readCommit: readCommit,
         readCommitInfo: readCommitInfo,
         addCommitNote: addCommitNote,
