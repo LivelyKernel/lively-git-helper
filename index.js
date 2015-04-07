@@ -128,9 +128,11 @@ function getFileType(branch, workingDir, fileName, callback) {
         file = path.basename(fileName);
     if (basePath == '.')
         basePath = '';
-    basePath += path.sep;
+    else
+        basePath += path.sep;
     exec('git', ['ls-tree', stashForBranch(branch) + ':' + basePath, file], { cwd: workingDir }, function(err, stdout, stderr) {
         if (err || stdout == '') return callback(err || new Error('Could not find ' + fileName));
+        if (basePath == '' && file == '') return callback(null, true); // root is a tree, if there was no error
         var info = stdout.match(/^([0-9]+) (tree|blob) /);
         if (info[1].substr(0, 2) == '12') {
             err = new Error(fileName + ' is symbolic link!');
@@ -803,7 +805,11 @@ module.exports = {
             else if (!err.killed && err.code == 1) {
                 if (stderr.length > 0) { // old git version without check-ignore, fallback
                     exec('git', ['clean', '-dnX'], { cwd: workingDir }, function(err, stdout) {
-                        if (err) return callback(err);
+                        if (err) {
+                            if (err.code == 128 && !err.killed) // fatal error, mostly not a git repo
+                                err.code = 'NONGIT';
+                            return callback(err);
+                        }
                         var ignored = stdout.substr(0, stdout.length -1).split('\n').some(function(line) {
                             line = line.indexOf('Would remove ') == 0 ? line.substr(13) : line;
                             if (line[line.length - 1] == path.sep) {
