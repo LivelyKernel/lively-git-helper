@@ -211,7 +211,7 @@ var tests = {
     },
 
     testDiffCommits: function(test) {
-        var testBranch = 'TESTING_do_not_change',
+        var testBranch = 'remotes/origin/TESTING_do_not_change',
             addCommit = 'c3b20aa980bef5a352b016c752ffe8439d3c2781';
 
         gitHelper.util.diffCommits(testBranch, '.', function(err, diff) { // single commitish
