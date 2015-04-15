@@ -220,7 +220,11 @@ function listChangedFiles(commitish1, commitish2, workingDir, callback) {
     }
     exec('git', ['diff', '--name-only', commitish1, commitish2], { cwd: workingDir },
         function(err, stdout, stderr) {
-        if (err) return callback(err);
+        if (err) {
+            if (err.code == 128 && !err.killed) // fatal error, mostly not a valid branch
+                err.code = 'NOTABRANCH';
+            return callback(err);
+        }
         callback(null, stdout.trimRight().split('\n'));
     });
 }
