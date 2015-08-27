@@ -836,7 +836,8 @@ module.exports = {
 
     gitPath: function(workingDir, callback) {
         workingDir = path.resolve(process.env.PWD, workingDir);
-        exec('git', ['rev-parse', '--show-cdup'], { cwd: workingDir }, function(err, stdout, stderr) {
+
+        function handler(err, stdout, stderr) {
             if (err) {
                 if ((err.code == 'ENOENT' && err.errno == 'ENOENT') ||
                     (err.code == 'ENOTDIR' && err.errno == 'ENOTDIR')) // fatal error, mostly non-existent working dir
@@ -844,7 +845,13 @@ module.exports = {
                 return callback(err);
             }
             callback(null, path.resolve(workingDir, stdout.trimRight()));
-        });
+        }
+
+        try {
+            exec('git', ['rev-parse', '--show-cdup'], { cwd: workingDir }, handler);
+        } catch(e) {
+            handler(e);
+        }
     },
 
     lastModified: function(branch, workingDir, path, callback) {
