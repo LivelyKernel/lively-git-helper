@@ -15,7 +15,7 @@
   },
   "main": "index.js",
   "dependencies": {
-    "async": "~0.2"
+    "async": "0.3 - 0"
   },
   "devDependencies": {
     "nodeunit": "~0.8.6"
